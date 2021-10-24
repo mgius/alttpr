@@ -6,53 +6,76 @@ import (
 	"testing"
 )
 
+func compare_bps(expected *BPSPatch, actual *BPSPatch, t *testing.T) {
+	if actual.SourceSize != expected.SourceSize {
+		t.Fatalf("source_size mismatch %d = %d", actual.SourceSize, expected.SourceSize)
+	}
+
+	if actual.TargetSize != expected.TargetSize {
+		t.Fatalf("target_size mismatch %d = %d", actual.TargetSize, expected.TargetSize)
+	}
+
+	if actual.MetadataSize != expected.MetadataSize {
+		t.Fatalf("metadata_size mismatch %d = %d", actual.MetadataSize, expected.MetadataSize)
+	}
+
+	if actual.Metadata != expected.Metadata {
+		t.Fatalf("metadata mismatch %s = %s", actual.Metadata, expected.Metadata)
+	}
+
+	if actual.SourceChecksum != expected.SourceChecksum {
+		t.Fatalf("SourceChecksum mismatch %d = %d", actual.SourceChecksum, expected.SourceChecksum)
+	}
+
+	if actual.TargetChecksum != expected.TargetChecksum {
+		t.Fatalf("TargetChecksum mismatch %d = %d", actual.TargetChecksum, expected.TargetChecksum)
+	}
+
+	if actual.PatchChecksum != expected.PatchChecksum {
+		t.Fatalf("PatchChecksum mismatch %d = %d", actual.PatchChecksum, expected.PatchChecksum)
+	}
+
+}
+
 func TestReadBPSFile(t *testing.T) {
+	// Test against a trivial text diff BPS patch
 	expected_bps := BPSPatch{
-		SourceSize:   45,
-		TargetSize:   92,
-		MetadataSize: 0,
+		SourceSize:     45,
+		TargetSize:     92,
+		MetadataSize:   0,
+		Metadata:       "",
+		SourceChecksum: 0x133070d,
+		TargetChecksum: 0x76c91265,
+		PatchChecksum:  0xc18e4db1,
 	}
 
 	f, _ := os.Open("testpatch.bps")
 	bps, _ := read_bps_patch_file(f)
 
-	if bps.SourceSize != expected_bps.SourceSize {
-		t.Fatalf("bps_source_size mismatch %d = %d", bps.SourceSize, expected_bps.SourceSize)
-	}
-
-	if bps.TargetSize != expected_bps.TargetSize {
-		t.Fatalf("bps_target_size mismatch %d = %d", bps.TargetSize, expected_bps.TargetSize)
-	}
-
-	if bps.MetadataSize != expected_bps.MetadataSize {
-		t.Fatalf("bps_metadata_size mismatch %d = %d", bps.MetadataSize, expected_bps.MetadataSize)
-
-	}
+	compare_bps(&expected_bps, &bps, t)
 
 }
 
 func TestReadALTTPRBPSFile(t *testing.T) {
+	// Test against a real ALTTPR bps patch.  This data confirmed by two alternative python based implementations
 	expected_bps := BPSPatch{
-		SourceSize:   1048576,
-		TargetSize:   2097152,
-		MetadataSize: 66,
+		SourceSize:     1048576,
+		TargetSize:     2097152,
+		MetadataSize:   66,
+		Metadata:       `{"created":"2021-09-18","hash":"7f2e1606616492d7dfb589e8dfb70027"}`,
+		SourceChecksum: 0x3322effc,
+		TargetChecksum: 0xe7565629,
+		PatchChecksum:  0xb2b9ef4b,
+		Actions:        make([]byte, 126299),
 	}
 
 	f, _ := os.Open("7f2e1606616492d7dfb589e8dfb70027.bps")
-	bps, _ := read_bps_patch_file(f)
-
-	if bps.SourceSize != expected_bps.SourceSize {
-		t.Fatalf("bps_source_size mismatch %d = %d", bps.SourceSize, expected_bps.SourceSize)
+	bps, err := read_bps_patch_file(f)
+	if err != nil {
+		t.Fatalf("%s", err)
 	}
 
-	if bps.TargetSize != expected_bps.TargetSize {
-		t.Fatalf("bps_target_size mismatch %d = %d", bps.TargetSize, expected_bps.TargetSize)
-	}
-
-	if bps.MetadataSize != expected_bps.MetadataSize {
-		t.Fatalf("bps_metadata_size mismatch %d = %d", bps.MetadataSize, expected_bps.MetadataSize)
-
-	}
+	compare_bps(&expected_bps, &bps, t)
 }
 
 func TestEncodeOneByte(t *testing.T) {
