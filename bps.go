@@ -23,51 +23,32 @@ type BPSPatch struct {
 	PatchChecksum  uint32
 }
 
-func read_bps_patch_file(patchfile *os.File) (BPSPatch, error) {
+func FromFile(patchfile *os.File) (BPSPatch, error) {
 	filestat, _ := patchfile.Stat()
 	filesize := filestat.Size()
 
-	bps_header := make([]byte, len(BPS_HEADER))
-	read_bytes, _ := patchfile.Read(bps_header)
-	if read_bytes != len(BPS_HEADER) || !bytes.Equal(bps_header, BPS_HEADER) {
+	full_file := make([]byte, filesize)
+	patchfile.Read(full_file)
+
+	if !bytes.Equal(full_file[:len(BPS_HEADER)], BPS_HEADER) {
 		return BPSPatch{}, errors.New("Magic Header Incorrect")
 	}
 
+	remaining := full_file[len(BPS_HEADER):]
+
 	// TODO: error handling
-	source_size, _ := bps_read_num(patchfile)
-	target_size, _ := bps_read_num(patchfile)
-	metadata_size, _ := bps_read_num(patchfile)
-	raw_metadata := make([]byte, metadata_size)
-	_, _ = patchfile.Read(raw_metadata)
-	metadata := string(raw_metadata)
+	source_size, remaining, _, _ := bps_read_num(remaining)
 
-	cur_position, _ := patchfile.Seek(0, os.SEEK_CUR)
+	target_size, remaining, _, _ := bps_read_num(remaining)
+	metadata_size, remaining, _, _ := bps_read_num(remaining)
+	metadata, remaining := string(remaining[:metadata_size]), remaining[metadata_size:]
 
-	action_len := filesize - cur_position - 12
-	actions := make([]byte, action_len)
+	action_len := len(remaining) - 12
+	actions, remaining := remaining[:action_len], remaining[action_len:]
 
-	read_bytes, err := patchfile.Read(actions)
-	if err != nil {
-		return BPSPatch{}, err
-	}
-
-	if int64(read_bytes) != action_len {
-		return BPSPatch{}, errors.New("Did not read correct action length")
-
-	}
-
-	source_checksum, err := read_uint32(patchfile)
-	if err != nil {
-		return BPSPatch{}, err
-	}
-	target_checksum, err := read_uint32(patchfile)
-	if err != nil {
-		return BPSPatch{}, err
-	}
-	patch_checksum, err := read_uint32(patchfile)
-	if err != nil {
-		return BPSPatch{}, err
-	}
+	source_checksum := binary.LittleEndian.Uint32(remaining[:4])
+	target_checksum := binary.LittleEndian.Uint32(remaining[4:8])
+	patch_checksum := binary.LittleEndian.Uint32(remaining[8:12])
 
 	// TODO: validate patch_checksum
 
@@ -76,26 +57,11 @@ func read_bps_patch_file(patchfile *os.File) (BPSPatch, error) {
 		TargetSize:     target_size,
 		MetadataSize:   metadata_size,
 		Metadata:       metadata,
-		SourceChecksum: uint32(source_checksum),
-		TargetChecksum: uint32(target_checksum),
-		PatchChecksum:  uint32(patch_checksum),
+		Actions:        actions,
+		SourceChecksum: source_checksum,
+		TargetChecksum: target_checksum,
+		PatchChecksum:  patch_checksum,
 	}, nil
-
-}
-
-func convert_byte(b byte) (uint64, error) {
-	return uint64(b), nil
-}
-
-func read_uint32(reader io.Reader) (uint32, error) {
-	var val uint32
-
-	err := binary.Read(reader, binary.LittleEndian, &val)
-	if err != nil {
-		return 0, err
-	}
-
-	return val, nil
 
 }
 
@@ -130,29 +96,27 @@ func bps_write_num(bytewriter io.ByteWriter, num uint64) error {
 	return nil
 }
 
-func bps_read_num(reader io.Reader) (uint64, error) {
+func bps_read_num(stream []byte) (data uint64, remainder []byte, bytes_read int, err error) {
 	var (
-		data  uint64 = 0
+		// data  uint64 = 0
 		shift uint64 = 1
 	)
 
-	for true {
-		// Read a byte
-		var x = make([]byte, 1)
-		bytes_read, err := reader.Read(x)
-		if err != nil || bytes_read != 1 {
-			return 0, err
-		}
+	for bytes_read < len(stream) {
+		// Grab the next byte and indicate we read one.
+		var x = stream[bytes_read]
+		bytes_read++
 
 		// Mask off the eigth bit.  Multiply the remaining 7 bits by the shift,
-		// which will increase with each byte we read
-		data += uint64((x[0] & 0x7f)) * shift
+		// and add into our data parameter.
+		data += uint64((x & 0x7f)) * shift
 
 		// If the 8th bit is set, we've reached end of number
-		if (x[0] & 0x80) == 0x80 {
-			break
+		if (x & 0x80) == 0x80 {
+			remainder = stream[bytes_read:]
+			return
 		}
-		// Increase the shift so that further reads are larger
+		// Increase the shift so that further reads represent higher bits in the read number
 		shift <<= 7
 
 		// I think this has to do with the way the encoding subtracts one from
@@ -160,5 +124,7 @@ func bps_read_num(reader io.Reader) (uint64, error) {
 		data += shift
 	}
 
-	return data, nil
+	err = errors.New("bps_read_num: Ran out of bytes before termination bit was set")
+
+	return
 }

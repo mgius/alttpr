@@ -50,7 +50,7 @@ func TestReadBPSFile(t *testing.T) {
 	}
 
 	f, _ := os.Open("testpatch.bps")
-	bps, _ := read_bps_patch_file(f)
+	bps, _ := FromFile(f)
 
 	compare_bps(&expected_bps, &bps, t)
 
@@ -70,7 +70,7 @@ func TestReadALTTPRBPSFile(t *testing.T) {
 	}
 
 	f, _ := os.Open("7f2e1606616492d7dfb589e8dfb70027.bps")
-	bps, err := read_bps_patch_file(f)
+	bps, err := FromFile(f)
 	if err != nil {
 		t.Fatalf("%s", err)
 	}
@@ -129,39 +129,42 @@ func TestDecodeOneByte(t *testing.T) {
 	var encoded []byte = []byte{0b10001011} // decimal 11 with highest bit flagged
 	const expected_decode uint64 = 0b1011   // decimal 11
 
-	readBuffer := bytes.NewBuffer(encoded)
-
-	decoded, err := bps_read_num(readBuffer)
+	decoded, _, bytes_read, err := bps_read_num(encoded)
 
 	if err != nil {
 		t.Fatalf("bps_read_num threw an error")
 	}
 
+	if bytes_read != 1 {
+		t.Fatalf("bps_read_num did not read enough bytes")
+	}
 	if decoded != expected_decode {
 		t.Fatalf("bps_read_num did not decode correctly")
 	}
 }
 
 // TODO: fix the encoded value
-func _TestDecodeTwoBytes(t *testing.T) {
-	encoded := []byte{0b0_0001011, 0b1_0000101}
-	const expected_decode uint64 = 0b101_0001011 // 651
+// func _TestDecodeTwoBytes(t *testing.T) {
+// 	encoded := []byte{0b0_0001011, 0b1_0000101}
+// 	const expected_decode uint64 = 0b101_0001011 // 651
 
-	readBuffer := bytes.NewBuffer(encoded)
+// 	decoded, bytes_read, err := bps_read_num(encoded)
 
-	decoded, err := bps_read_num(readBuffer)
+// 	if err != nil {
+// 		t.Fatalf("bps_read_num threw an error")
+// 	}
 
-	if err != nil {
-		t.Fatalf("bps_read_num threw an error")
-	}
+// 	if bytes_read != 2 {
+// 		t.Fatalf("bps_read_num did not read enough bytes")
+// 	}
 
-	if decoded != expected_decode {
-		t.Fatalf("bps_read_num did not decode correctly")
-	}
-}
+// 	if decoded != expected_decode {
+// 		t.Fatalf("bps_read_num did not decode correctly")
+// 	}
+// }
 
 func TestCanDecodeEncodedNumbers(t *testing.T) {
-	const encode_big_num uint64 = 0xdeadbeefdeadbeef
+	const encode_big_num uint64 = 0xdeadbeefdeadbeef // 64 bits
 
 	var writeBuffer bytes.Buffer
 
@@ -171,10 +174,14 @@ func TestCanDecodeEncodedNumbers(t *testing.T) {
 		t.Fatalf("bps_write_num returned an error: %s", err)
 	}
 
-	read_num, err := bps_read_num(&writeBuffer)
+	read_num, _, bytes_read, err := bps_read_num(writeBuffer.Bytes())
 
 	if err != nil {
 		t.Fatalf("bps_read_num returned an error: %s", err)
+	}
+
+	if bytes_read != 10 { // 64 bits / 7 bits per encoded bytes == 10 bytes encoded
+		t.Fatalf("bps_read_num did not read correct bytes")
 	}
 
 	if read_num != encode_big_num {

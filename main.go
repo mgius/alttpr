@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 )
 
 const (
@@ -95,10 +94,4 @@ func alttpr_settings_request() (SettingsResponse, error) {
 
 func main() {
 	fmt.Println("Hello World")
-	// alttpr_randomizer_request()
-
-	var f *os.File
-
-	f, _ = os.Open("testpatch7f2e1606616492d7dfb589e8dfb70027.bps")
-	fmt.Println(read_bps_patch_file(f))
 }
