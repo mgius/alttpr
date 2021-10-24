@@ -23,6 +23,11 @@ type BPSPatch struct {
 	PatchChecksum  uint32
 }
 
+func (*BPSPatch) PatchSourceFile(sourcefile *os.File) (targetfiledata []byte, err error) {
+	return
+
+}
+
 func FromFile(patchfile *os.File) (BPSPatch, error) {
 	filestat, _ := patchfile.Stat()
 	filesize := filestat.Size()

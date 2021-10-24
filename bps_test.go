@@ -98,10 +98,9 @@ func TestEncodeOneByte(t *testing.T) {
 	}
 }
 
-// TODO: fix encoded value
-func _TestEncodeTwoBytes(t *testing.T) {
+func TestEncodeTwoBytes(t *testing.T) {
 	const encode_two_bytes uint64 = 0b101_0001011 // 651
-	expected_encoding := []byte{0b0_0001011, 0b1_0000101}
+	expected_encoding := []byte{0b0_0001011, 0b1_0000100}
 
 	var writeBuffer bytes.Buffer
 
@@ -143,25 +142,24 @@ func TestDecodeOneByte(t *testing.T) {
 	}
 }
 
-// TODO: fix the encoded value
-// func _TestDecodeTwoBytes(t *testing.T) {
-// 	encoded := []byte{0b0_0001011, 0b1_0000101}
-// 	const expected_decode uint64 = 0b101_0001011 // 651
+func TestDecodeTwoBytes(t *testing.T) {
+	encoded := []byte{0b0_0001011, 0b1_0000100}
+	const expected_decode uint64 = 0b101_0001011 // 651
 
-// 	decoded, bytes_read, err := bps_read_num(encoded)
+	decoded, _, bytes_read, err := bps_read_num(encoded)
 
-// 	if err != nil {
-// 		t.Fatalf("bps_read_num threw an error")
-// 	}
+	if err != nil {
+		t.Fatalf("bps_read_num threw an error")
+	}
 
-// 	if bytes_read != 2 {
-// 		t.Fatalf("bps_read_num did not read enough bytes")
-// 	}
+	if bytes_read != 2 {
+		t.Fatalf("bps_read_num did not read enough bytes")
+	}
 
-// 	if decoded != expected_decode {
-// 		t.Fatalf("bps_read_num did not decode correctly")
-// 	}
-// }
+	if decoded != expected_decode {
+		t.Fatalf("bps_read_num did not decode correctly")
+	}
+}
 
 func TestCanDecodeEncodedNumbers(t *testing.T) {
 	const encode_big_num uint64 = 0xdeadbeefdeadbeef // 64 bits
