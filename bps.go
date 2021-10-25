@@ -119,6 +119,7 @@ func (patch *BPSPatch) PatchSourceFile(sourcefile *os.File) (target_data []byte,
 				target_data[output_offset] = target_data[target_offset]
 				output_offset += 1
 				target_offset += 1
+				length--
 			}
 		}
 

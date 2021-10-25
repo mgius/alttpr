@@ -209,3 +209,21 @@ func TestEndToEndTrivial(t *testing.T) {
 
 	}
 }
+
+func TestEndToEndALTPPRBase(t *testing.T) {
+	patchfile, _ := os.Open("7f2e1606616492d7dfb589e8dfb70027.bps")
+	sourcefile, _ := os.Open("Zelda.sfc")
+
+	patch, err := FromFile(patchfile)
+
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	_, err = patch.PatchSourceFile(sourcefile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// If the checksum passes, it's good
+}
