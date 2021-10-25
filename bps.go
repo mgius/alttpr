@@ -4,12 +4,21 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 )
 
 var (
 	BPS_HEADER = []byte("BPS1")
+)
+
+const (
+	SourceRead = iota
+	TargetRead
+	SourceCopy
+	TargetCopy
 )
 
 type BPSPatch struct {
@@ -23,7 +32,104 @@ type BPSPatch struct {
 	PatchChecksum  uint32
 }
 
-func (*BPSPatch) PatchSourceFile(sourcefile *os.File) (targetfiledata []byte, err error) {
+func (patch *BPSPatch) PatchSourceFile(sourcefile *os.File) (target_data []byte, err error) {
+	// Read and validate source file
+	source_data := make([]byte, patch.SourceSize)
+
+	_, err = sourcefile.Read(source_data)
+	if err != nil {
+		err = fmt.Errorf("Sourcefile Read: %w", err)
+		return
+	}
+
+	calculated_source_checksum := crc32.ChecksumIEEE(source_data)
+	if calculated_source_checksum != patch.SourceChecksum {
+		err = errors.New("Source File checksum mismatch")
+		return
+	}
+
+	// Initialize target data byte slice
+	target_data = make([]byte, patch.TargetSize)
+
+	remaining_actions := patch.Actions
+
+	var (
+		output_offset uint64
+		source_offset uint64
+		target_offset uint64
+	)
+
+	for len(remaining_actions) > 0 {
+		var header uint64
+		header, remaining_actions, _, err = bps_read_num(remaining_actions)
+		if err != nil {
+			err = fmt.Errorf("Read Action: %w", err)
+			return
+		}
+		// First two bits of the header are the action num
+		action_num := header & 0b11
+		// Remaining bits are the length minus one
+		length := (header >> 2) + 1
+
+		switch action_num {
+		case SourceRead:
+			// Copy length bytes from source file to target file, using the output offset as the index for both source and target
+			copy(target_data[output_offset:output_offset+length], source_data[output_offset:output_offset+length])
+			output_offset += length
+		case TargetRead:
+			// copy length bytes from patch file to target file
+			copy(target_data[output_offset:output_offset+length], remaining_actions[:length])
+			output_offset += length
+			remaining_actions = remaining_actions[length:]
+		case SourceCopy:
+			// copy length bytes from somewhere else in the source file.  Increment or decrement the source offset before copying
+			var (
+				data uint64
+			)
+			data, remaining_actions, _, err = bps_read_num(remaining_actions)
+			if err != nil {
+				err = fmt.Errorf("Source copy data read: %w", err)
+				return
+			}
+			if data&1 == 1 {
+				source_offset -= data >> 1
+			} else {
+				source_offset += data >> 1
+			}
+			copy(target_data[output_offset:output_offset+length], source_data[source_offset:source_offset+length])
+			source_offset += length
+			output_offset += length
+		case TargetCopy:
+			// copy data from somewhere else in the target file.  Increment or decrement the target offset before copying
+			var (
+				data uint64
+			)
+			data, remaining_actions, _, err = bps_read_num(remaining_actions)
+			if err != nil {
+				err = fmt.Errorf("Target Copy Read %w", err)
+				return
+			}
+			if data&1 == 1 {
+				target_offset -= data >> 1
+			} else {
+				target_offset += data >> 1
+			}
+			// sadly, cannot use copy for this, because we might be copying from areas we haven't written yet
+			for length > 0 {
+				target_data[output_offset] = target_data[target_offset]
+				output_offset += 1
+				target_offset += 1
+			}
+		}
+
+	}
+
+	calculated_target_checksum := crc32.ChecksumIEEE(target_data)
+	if calculated_target_checksum != patch.TargetChecksum {
+		// This is likely a bug in the implementation, if we hit it
+		err = errors.New("Target Checksum mismatch.")
+	}
+
 	return
 
 }
@@ -56,6 +162,11 @@ func FromFile(patchfile *os.File) (BPSPatch, error) {
 	patch_checksum := binary.LittleEndian.Uint32(remaining[8:12])
 
 	// TODO: validate patch_checksum
+	// patch checksum is run over the whole file minus the patch checksum
+	calculated_patch_checksum := crc32.ChecksumIEEE(full_file[:len(full_file)-4])
+	if calculated_patch_checksum != patch_checksum {
+		return BPSPatch{}, errors.New("Patch checksum did not verify")
+	}
 
 	return BPSPatch{
 		SourceSize:     source_size,
@@ -71,6 +182,9 @@ func FromFile(patchfile *os.File) (BPSPatch, error) {
 }
 
 func bps_write_num(bytewriter io.ByteWriter, num uint64) error {
+	/* Serialize a uint64 into a BPS variable length encoded byte stream
+	Should probably switch to return bytes at some point?  Mostly this is used for test cases ATM
+	*/
 	for true {
 		// slice off the lowest 7 bits of num
 		x := byte(num & 0x7f)
@@ -102,6 +216,7 @@ func bps_write_num(bytewriter io.ByteWriter, num uint64) error {
 }
 
 func bps_read_num(stream []byte) (data uint64, remainder []byte, bytes_read int, err error) {
+	// Read a BPS serialized variable length encoded integer from the provided byte slice.
 	var (
 		// data  uint64 = 0
 		shift uint64 = 1

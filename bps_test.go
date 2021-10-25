@@ -23,6 +23,8 @@ func compare_bps(expected *BPSPatch, actual *BPSPatch, t *testing.T) {
 		t.Fatalf("metadata mismatch %s = %s", actual.Metadata, expected.Metadata)
 	}
 
+	// Intentionally do not compare actions.  I'm not writing them out by hand
+
 	if actual.SourceChecksum != expected.SourceChecksum {
 		t.Fatalf("SourceChecksum mismatch %d = %d", actual.SourceChecksum, expected.SourceChecksum)
 	}
@@ -184,5 +186,26 @@ func TestCanDecodeEncodedNumbers(t *testing.T) {
 
 	if read_num != encode_big_num {
 		t.Fatalf("Number did not Encode/Decode to the same number. %x != %x", read_num, encode_big_num)
+	}
+}
+
+func TestEndToEndTrivial(t *testing.T) {
+	patchfile, _ := os.Open("testpatch.bps")
+	sourcefile, _ := os.Open("sourceFile")
+	expectedtargetdata, _ := os.ReadFile("targetFile")
+
+	patch, err := FromFile(patchfile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	targetdata, err := patch.PatchSourceFile(sourcefile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	if !bytes.Equal(expectedtargetdata, targetdata) {
+		t.Fatalf("Expected target data does not match target data")
+
 	}
 }
