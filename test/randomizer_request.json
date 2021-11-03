@@ -1,0 +1,28 @@
+{
+	"accessibility": "items",
+	"crystals": {
+		"ganon": "random",
+		"tower": "random"
+	},
+	"dungeon_items": "standard",
+	"enemizer": {
+		"boss_shuffle": "none",
+		"enemy_damage": "default",
+		"enemy_health": "default",
+		"enemy_shuffle": "none"
+	},
+	"entrances": "none",
+	"glitches": "none",
+	"goal": "pedestal",
+	"hints": "on",
+	"item": {
+		"functionality": "normal",
+		"pool": "normal"
+	},
+	"item_placement": "advanced",
+	"lang": "en",
+	"mode": "open",
+	"spoilers": "on",
+	"tournament": false,
+	"weapons": "randomized"
+}
