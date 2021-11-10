@@ -22,7 +22,7 @@ func TestReadRandomizerJSON(t *testing.T) {
 
 }
 
-func _TestGetBasePatch(t *testing.T) {
+func TestGetBasePatch(t *testing.T) {
 	client := Client{}
 	patch_bytes, err := client.GetBasePatch("7f2e1606616492d7dfb589e8dfb70027")
 	if err != nil {
@@ -37,13 +37,16 @@ func _TestGetBasePatch(t *testing.T) {
 }
 
 func TestEndToEnd(t *testing.T) {
+	base_rom, err := os.Open("test/Zelda.sfc")
+	if err != nil {
+		t.Skipf("Could not read test/Zelda.sfc.  Skipping this test")
+	}
+
 	client := Client{}
 	randomizer, err := client.GetRandomizer(DefaultRandomizerConfig())
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-
-	base_rom, _ := os.Open("test/Zelda.sfc")
 
 	patched_bytes, err := randomizer.CreatePatchedROM(CustomizationConfig{}, base_rom)
 	if err != nil {

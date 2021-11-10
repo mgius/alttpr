@@ -11,3 +11,10 @@ Reference material included
 
 https://github.com/tcprescott/pyz3r
 https://github.com/mgius/retropie-alttpr
+
+
+TODO
+----
+
+* Better support for creating and saving configurations.
+* Support for automatically pulling down standard configurations from alttpr site
