@@ -1,4 +1,4 @@
-package alttprclient
+package alttpr
 
 import (
 	"os"
@@ -43,7 +43,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	base_rom, _ := os.Open("Zelda.sfc")
+	base_rom, _ := os.Open("test/Zelda.sfc")
 
 	patched_bytes, err := randomizer.CreatePatchedROM(CustomizationConfig{}, base_rom)
 	if err != nil {
