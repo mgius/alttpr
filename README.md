@@ -7,11 +7,6 @@ does the same thing.
 An attempt was made to write more idiomatic go than my BPS patcher, but i'm
 still a pythonist at heart so I'm sure it's not quite right.
 
-Reference material included
-
-https://github.com/tcprescott/pyz3r
-https://github.com/mgius/retropie-alttpr
-
 
 TODO
 ----
